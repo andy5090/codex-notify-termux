@@ -8,3 +8,6 @@ type = "command"
 command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py"
 timeout = 10
 statusMessage = "Sending Android completion notification"
+
+# To enable text-to-speech, append --tts to the command above:
+# command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py --tts"

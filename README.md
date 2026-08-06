@@ -61,11 +61,42 @@ printf '%s' '{"cwd":"/tmp/example","last_assistant_message":"The task is complet
   | python3 termux_stop_notification.py
 ```
 
+## Text-to-speech
+
+Text-to-speech is disabled by default. When enabled, the hook reads the same
+shortened response used in the notification through Android's system TTS
+engine. Speech starts in the background so it does not hold up the Codex
+`Stop` hook.
+
+To enable TTS, append `--tts` to the hook command:
+
+```toml
+command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py --tts"
+```
+
+Remove `--tts` to turn it off again. Because this changes the hook definition,
+Codex may ask you to review and trust the hook again.
+
+You can also control TTS without changing the hook definition by setting
+`CODEX_TERMUX_TTS` before starting Codex:
+
+```sh
+# Enable TTS for Codex processes started from this shell.
+export CODEX_TERMUX_TTS=1
+
+# Disable it again.
+export CODEX_TERMUX_TTS=0
+```
+
+Accepted enabled values are `1`, `true`, `yes`, and `on`, ignoring letter case.
+The `--tts` flag always enables speech regardless of the environment variable.
+
 ## How it works
 
 - Reads the JSON payload supplied through standard input.
 - Uses the last component of `cwd` in the notification title.
 - Simplifies Markdown in `last_assistant_message` and limits it to 320 characters.
+- Optionally reads the shortened response through Android system TTS.
 - Uses a stable notification ID so each completion replaces the previous
   notification instead of creating an ever-growing list.
 

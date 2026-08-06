@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -14,6 +16,18 @@ from typing import Any
 
 CHANNEL_ID = "codex_high"
 MAX_SUMMARY_CHARS = 320
+TTS_ENV_VAR = "CODEX_TERMUX_TTS"
+TRUTHY_VALUES = {"1", "true", "yes", "on"}
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--tts",
+        action="store_true",
+        help="read the notification text aloud with Android system TTS",
+    )
+    return parser.parse_args(argv)
 
 
 def load_payload() -> dict[str, Any]:
@@ -42,7 +56,31 @@ def summarize(message: Any) -> str:
     return (shortened or text[: MAX_SUMMARY_CHARS - 1]) + "…"
 
 
-def main() -> int:
+def is_tts_enabled(cli_enabled: bool) -> bool:
+    """Return whether TTS is enabled by the CLI flag or environment."""
+    env_enabled = os.environ.get(TTS_ENV_VAR, "").strip().lower()
+    return cli_enabled or env_enabled in TRUTHY_VALUES
+
+
+def speak(text: str) -> None:
+    """Start Android system TTS without blocking the Codex Stop hook."""
+    termux_tts_speak = shutil.which("termux-tts-speak")
+    if termux_tts_speak is None:
+        return
+
+    try:
+        subprocess.Popen(
+            [termux_tts_speak, text],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError:
+        pass
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     payload = load_payload()
     cwd = payload.get("cwd")
     project = Path(cwd).name if isinstance(cwd, str) and cwd else "Codex"
@@ -50,35 +88,36 @@ def main() -> int:
     content = summarize(payload.get("last_assistant_message"))
 
     termux_notification = shutil.which("termux-notification")
-    if termux_notification is None:
-        return 0
+    if termux_notification is not None:
+        try:
+            subprocess.run(
+                [
+                    termux_notification,
+                    "--channel",
+                    CHANNEL_ID,
+                    "--id",
+                    "codex-turn-complete",
+                    "--title",
+                    title,
+                    "--content",
+                    content,
+                    "--priority",
+                    "max",
+                    "--sound",
+                    "--vibrate",
+                    "300,150,300",
+                ],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=8,
+            )
+        except (OSError, subprocess.SubprocessError):
+            # Notification failures must never change Codex Stop behavior.
+            pass
 
-    try:
-        subprocess.run(
-            [
-                termux_notification,
-                "--channel",
-                CHANNEL_ID,
-                "--id",
-                "codex-turn-complete",
-                "--title",
-                title,
-                "--content",
-                content,
-                "--priority",
-                "max",
-                "--sound",
-                "--vibrate",
-                "300,150,300",
-            ],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=8,
-        )
-    except (OSError, subprocess.SubprocessError):
-        # Notification failures must never change Codex Stop behavior.
-        pass
+    if is_tts_enabled(args.tts):
+        speak(content)
 
     return 0
 
