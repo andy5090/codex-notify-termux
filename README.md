@@ -1,4 +1,4 @@
-# codex-hook-termux
+# codex-notify-termux
 
 A small Codex `Stop` hook that displays an Android notification through
 Termux:API when Codex finishes a response.
