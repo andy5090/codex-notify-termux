@@ -35,6 +35,51 @@ class SummarizeTests(unittest.TestCase):
         self.assertTrue(result.endswith("…"))
 
 
+class CodexSummaryTests(unittest.TestCase):
+    def test_codex_summary_is_disabled_by_default(self) -> None:
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertFalse(hook.is_codex_summary_enabled(False))
+
+    def test_codex_summary_can_be_enabled_by_environment(self) -> None:
+        with patch.dict(
+            "os.environ", {hook.CODEX_SUMMARY_ENV_VAR: "on"}, clear=True
+        ):
+            self.assertTrue(hook.is_codex_summary_enabled(False))
+
+    def test_short_single_line_skips_codex(self) -> None:
+        self.assertFalse(hook.should_use_codex_summary("Task complete."))
+
+    def test_multiline_text_uses_codex(self) -> None:
+        self.assertTrue(hook.should_use_codex_summary("Done.\nTests passed."))
+
+    def test_summary_prompt_bounds_input_and_keeps_tail(self) -> None:
+        message = "a" * hook.MAX_CODEX_INPUT_CHARS + "important tail"
+        prompt = hook.build_summary_prompt(message)
+        self.assertLess(len(prompt), hook.MAX_CODEX_INPUT_CHARS + 1_000)
+        self.assertIn("important tail", prompt)
+
+    @patch("termux_stop_notification.request_codex_summary")
+    def test_notification_uses_codex_summary(self, request_summary) -> None:
+        request_summary.return_value = "작업과 테스트를 완료했습니다."
+        result = hook.notification_summary(
+            "구현했습니다.\n테스트도 통과했습니다.", codex_enabled=True
+        )
+        self.assertEqual(result, "작업과 테스트를 완료했습니다.")
+        request_summary.assert_called_once_with(
+            "구현했습니다.\n테스트도 통과했습니다.",
+            model=hook.DEFAULT_SUMMARY_MODEL,
+            timeout=hook.DEFAULT_SUMMARY_TIMEOUT,
+        )
+
+    @patch("termux_stop_notification.request_codex_summary", return_value=None)
+    def test_notification_falls_back_when_app_server_fails(self, _request) -> None:
+        message = "**Done.**\nTests passed."
+        self.assertEqual(
+            hook.notification_summary(message, codex_enabled=True),
+            "Done. Tests passed.",
+        )
+
+
 class TtsTests(unittest.TestCase):
     def test_tts_is_disabled_by_default(self) -> None:
         with patch.dict("os.environ", {}, clear=True):

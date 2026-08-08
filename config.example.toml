@@ -6,7 +6,7 @@ hooks = true
 [[hooks.Stop.hooks]]
 type = "command"
 command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py"
-timeout = 10
+timeout = 20
 statusMessage = "Sending Android completion notification"
 
 # To enable text-to-speech, append --tts to the command above:
@@ -14,3 +14,6 @@ statusMessage = "Sending Android completion notification"
 
 # Optional voice settings can select an installed engine, locale, pitch, and rate:
 # command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py --tts --tts-engine com.google.android.tts --tts-language ko --tts-region KR --tts-pitch 0.9 --tts-rate 1.1"
+
+# Use the logged-in Codex App Server and GPT-5.6 Luna for brief semantic summaries:
+# command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py --tts --codex-summary"

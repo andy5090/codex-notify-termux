@@ -46,7 +46,7 @@ hooks = true
 [[hooks.Stop.hooks]]
 type = "command"
 command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py"
-timeout = 10
+timeout = 20
 statusMessage = "Sending Android completion notification"
 ```
 
@@ -90,6 +90,46 @@ export CODEX_TERMUX_TTS=0
 
 Accepted enabled values are `1`, `true`, `yes`, and `on`, ignoring letter case.
 The `--tts` flag always enables speech regardless of the environment variable.
+
+### Codex-powered summaries
+
+By default, the hook only removes Markdown and truncates long responses. Add
+`--codex-summary` to ask the locally installed
+[Codex App Server](https://learn.chatgpt.com/docs/app-server) for a short,
+semantic summary before showing and speaking the notification:
+
+```toml
+command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py --tts --codex-summary"
+timeout = 20
+```
+
+This uses the existing Codex ChatGPT login and its subscription allowance. It
+does not require an OpenAI API key or separate API billing. The default summary
+model is [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
+with reasoning disabled.
+
+The summarizer is isolated for safety and predictable behavior:
+
+- hooks and apps are disabled in the nested ephemeral thread, preventing hook
+  recursion and unnecessary connector startup;
+- the nested thread is read-only, never asks for approvals, and is not saved;
+- project instructions are avoided by running from the system temporary folder;
+- completion text is capped at 4,000 characters and treated as untrusted data;
+- short, single-line responses skip Codex and use no subscription allowance;
+- App Server errors, unavailable models, rerouting, or an 8-second timeout fall
+  back to the existing local summary.
+
+To enable or disable semantic summaries without editing the hook definition:
+
+```sh
+export CODEX_TERMUX_CODEX_SUMMARY=1  # Enable
+export CODEX_TERMUX_CODEX_SUMMARY=0  # Disable
+```
+
+Optional flags are `--summary-model MODEL` and `--summary-timeout SECONDS`.
+The feature requires a Codex version with `codex app-server` and subscription
+access to the selected model. Because App Server is currently experimental,
+the hook always keeps its local fallback.
 
 ### Choose a voice
 
@@ -138,6 +178,7 @@ review and trust its updated definition in Codex when prompted.
 - Reads the JSON payload supplied through standard input.
 - Uses the last component of `cwd` in the notification title.
 - Simplifies Markdown in `last_assistant_message` and limits it to 320 characters.
+- Optionally creates a brief semantic summary through the logged-in Codex App Server.
 - Optionally reads the shortened response through Android system TTS.
 - Uses a stable notification ID so each completion replaces the previous
   notification instead of creating an ever-growing list.
