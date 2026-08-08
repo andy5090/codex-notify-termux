@@ -48,6 +48,11 @@ class TtsTests(unittest.TestCase):
         with patch.dict("os.environ", {hook.TTS_ENV_VAR: "yes"}, clear=True):
             self.assertTrue(hook.is_tts_enabled(False))
 
+    def test_tts_pitch_and_rate_must_be_positive(self) -> None:
+        self.assertEqual(hook.parse_args(["--tts-pitch", "0.8"]).tts_pitch, 0.8)
+        with patch("sys.stderr", io.StringIO()), self.assertRaises(SystemExit):
+            hook.parse_args(["--tts-rate", "0"])
+
     @patch("termux_stop_notification.subprocess.Popen")
     @patch("termux_stop_notification.shutil.which", return_value="/bin/termux-tts-speak")
     def test_speak_starts_tts_in_background(self, _which, popen) -> None:
@@ -57,6 +62,38 @@ class TtsTests(unittest.TestCase):
             stdout=hook.subprocess.DEVNULL,
             stderr=hook.subprocess.DEVNULL,
             start_new_session=True,
+        )
+
+    @patch("termux_stop_notification.subprocess.Popen")
+    @patch("termux_stop_notification.shutil.which", return_value="/bin/termux-tts-speak")
+    def test_speak_passes_voice_options(self, _which, popen) -> None:
+        hook.speak(
+            "Done",
+            engine="com.google.android.tts",
+            language="ko",
+            region="KR",
+            variant="test",
+            pitch=0.9,
+            rate=1.1,
+        )
+        self.assertEqual(
+            popen.call_args.args[0],
+            [
+                "/bin/termux-tts-speak",
+                "-e",
+                "com.google.android.tts",
+                "-l",
+                "ko",
+                "-n",
+                "KR",
+                "-v",
+                "test",
+                "-p",
+                "0.9",
+                "-r",
+                "1.1",
+                "Done",
+            ],
         )
 
     @patch("termux_stop_notification.subprocess.Popen")

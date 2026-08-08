@@ -91,6 +91,48 @@ export CODEX_TERMUX_TTS=0
 Accepted enabled values are `1`, `true`, `yes`, and `on`, ignoring letter case.
 The `--tts` flag always enables speech regardless of the environment variable.
 
+### Choose a voice
+
+List the TTS engines installed on your device:
+
+```sh
+termux-tts-engines
+```
+
+Select an engine and locale with `--tts-engine`, `--tts-language`, and
+`--tts-region`. For example, this configuration uses Google TTS with a Korean
+locale, slightly lower pitch, and slightly faster speech:
+
+```toml
+command = "/data/data/com.termux/files/usr/bin/python3 <HOME>/.codex/hooks/termux_stop_notification.py --tts --tts-engine com.google.android.tts --tts-language ko --tts-region KR --tts-pitch 0.9 --tts-rate 1.1"
+```
+
+Available voice options:
+
+| Option | Meaning | Example |
+| --- | --- | --- |
+| `--tts-engine` | Engine package reported by `termux-tts-engines` | `com.google.android.tts` |
+| `--tts-language` | Language code | `ko` |
+| `--tts-region` | Region code | `KR` |
+| `--tts-variant` | Engine-specific language variant | Varies by engine |
+| `--tts-pitch` | Pitch multiplier; `1.0` is normal | `0.9` |
+| `--tts-rate` | Speech-rate multiplier; `1.0` is normal | `1.1` |
+
+Termux:API does not expose a portable option for selecting a specific named
+voice, such as a particular male or female voice. Choose that voice in the
+Android text-to-speech settings for the selected engine. Engines may ignore an
+unsupported language, region, or variant.
+
+You can compare installed engines directly before changing the hook:
+
+```sh
+termux-tts-speak -e com.samsung.SMT -l ko -n KR "Samsung voice test"
+termux-tts-speak -e com.google.android.tts -l ko -n KR "Google voice test"
+```
+
+Installed engine package names vary by device. After changing the hook command,
+review and trust its updated definition in Codex when prompted.
+
 ## How it works
 
 - Reads the JSON payload supplied through standard input.
