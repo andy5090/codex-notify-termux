@@ -7,6 +7,11 @@ The notification title contains the current project name, and its body contains
 a simplified version of the latest Codex response. Notification failures never
 affect Codex itself.
 
+Tap the notification to dismiss it and bring Termux to the foreground. This
+opens the last selected Termux session; Termux 0.118.3 does not expose an activity
+intent for selecting the session that produced the notification. It does not
+start another Codex process.
+
 ## Requirements
 
 - [Termux](https://github.com/termux/termux-app) on Android

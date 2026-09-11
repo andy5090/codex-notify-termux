@@ -8,6 +8,7 @@ import json
 import os
 import re
 import selectors
+import shlex
 import shutil
 import subprocess
 import sys
@@ -347,6 +348,26 @@ def speak(
         pass
 
 
+def notification_action(termux_notification: str) -> str:
+    """Bring the existing Termux activity forward when the notification is tapped."""
+    # Actions run in a separate shell with a different PATH. Use the Termux am
+    # wrapper beside termux-notification, and quote paths for that shell.
+    am = str(Path(termux_notification).absolute().with_name("am"))
+    return shlex.join(
+        [
+            am,
+            "start",
+            "--activity-reorder-to-front",
+            "-a",
+            "android.intent.action.MAIN",
+            "-c",
+            "android.intent.category.LAUNCHER",
+            "-n",
+            "com.termux/com.termux.app.TermuxActivity",
+        ]
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     payload = load_payload()
@@ -370,6 +391,9 @@ def main(argv: list[str] | None = None) -> int:
                     CHANNEL_ID,
                     "--id",
                     "codex-turn-complete",
+                    # Termux:API auto-cancels on tap once an action is attached.
+                    "--action",
+                    notification_action(termux_notification),
                     "--title",
                     title,
                     "--content",

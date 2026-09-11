@@ -1,6 +1,10 @@
 import io
 import json
+import os
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import termux_stop_notification as hook
@@ -78,6 +82,54 @@ class CodexSummaryTests(unittest.TestCase):
             hook.notification_summary(message, codex_enabled=True),
             "Done. Tests passed.",
         )
+
+
+class NotificationActionTests(unittest.TestCase):
+    def test_action_launches_termux_with_a_separate_shell_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            bin_dir = Path(directory) / "bin with spaces and 'quotes'"
+            bin_dir.mkdir()
+            am = bin_dir / "am"
+            am.write_text(
+                f"#!{hook.shutil.which('sh')}\n"
+                'printf "%s\\n" "$@" > "$CAPTURE"\n'
+            )
+            am.chmod(0o755)
+            capture = Path(directory) / "arguments"
+            action = hook.notification_action(str(bin_dir / "termux-notification"))
+            subprocess.run(
+                [hook.shutil.which("sh"), "-c", action],
+                env={**os.environ, "PATH": "/nonexistent", "CAPTURE": str(capture)},
+                check=True,
+                timeout=5,
+            )
+            self.assertEqual(
+                capture.read_text().splitlines(),
+                [
+                    "start",
+                    "--activity-reorder-to-front",
+                    "-a",
+                    "android.intent.action.MAIN",
+                    "-c",
+                    "android.intent.category.LAUNCHER",
+                    "-n",
+                    "com.termux/com.termux.app.TermuxActivity",
+                ],
+            )
+
+    @patch("termux_stop_notification.subprocess.run")
+    @patch("termux_stop_notification.shutil.which", return_value="/bin/termux-notification")
+    def test_notification_attaches_tap_action(self, _which, run) -> None:
+        with patch.dict("os.environ", {}, clear=True), patch(
+            "sys.stdin", io.StringIO('{"last_assistant_message": "Done"}')
+        ):
+            self.assertEqual(hook.main([]), 0)
+        command = run.call_args.args[0]
+        self.assertEqual(
+            command[command.index("--action") + 1],
+            hook.notification_action("/bin/termux-notification"),
+        )
+        self.assertNotIn("--ongoing", command)
 
 
 class TtsTests(unittest.TestCase):
